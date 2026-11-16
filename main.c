@@ -5,6 +5,7 @@
  * Програма зчитує вхідні параметри табулювання з текстового файлу,
  * обчислює значення функції f(x) = 0.4*(x-100)^3 + 0.3*x^2 - 0.2*x + 200,
  * формує звіт у текстовому файлі та серіалізує результати у бінарний файл.
+ * а також зчитує бінарні дані у динамічний масив для виведення в консоль.
  * Підтримує коректну роботу з кирилицею у кодуванні UTF-8 (включно з UTF-8 BOM).
  */
 
@@ -66,6 +67,61 @@ void trim_newline(char *str) {
     while (len > 0 && (str[len - 1] == '\n' || str[len - 1] == '\r')) {
         str[--len] = '\0';
     }
+}
+
+/**
+ * @brief Зчитує дані з бінарного файлу у динамічний масив розміром 2*N
+ *        та виводить їх у вигляді таблиці на екран.
+ * @param filename Ім'я бінарного файлу для читання.
+ */
+ void read_and_display_binary(const char *filename) {
+    FILE *in_bin = fopen(filename, "rb");
+    if (in_bin == NULL) {
+        perror("Помилка відкриття бінарного файлу для читання");
+        return;
+    }
+
+    int n = 0;
+    /* Зчитування першого значення — кількості точок N */
+    if (fread(&n, sizeof(int), 1, in_bin) != 1 || n <= 0) {
+        fprintf(stderr, "Помилка зчитування кількості точок з бінарного файлу.\n");
+        fclose(in_bin);
+        return;
+    }
+
+    /* Виділення пам'яті під динамічний масив розміром 2*N типу double */
+    size_t array_size = (size_t)(2 * n);
+    double *data_array = (double *)malloc(array_size * sizeof(double));
+    if (data_array == NULL) {
+        fprintf(stderr, "Помилка виділення динамічної пам'яті.\n");
+        fclose(in_bin);
+        return;
+    }
+
+    /* Зчитування послідовності пар (x, f(x)) у динамічний масив */
+    size_t read_count = fread(data_array, sizeof(double), array_size, in_bin);
+    fclose(in_bin);
+
+    if (read_count != array_size) {
+        fprintf(stderr, "Попередження: зчитано менше елементів (%zu), ніж очікувалося (%zu).\n",
+                read_count, array_size);
+    }
+
+    /* Виведення таблиці на екран монітора */
+    printf("\nДані, зчитані з бінарного файлу (%s):\n", filename);
+    printf("+---------------+--------------+------------------+\n");
+    printf("|  Номер точки  |  Аргумент x  |  Значення f(x)   |\n");
+    printf("+---------------+--------------+------------------+\n");
+
+    for (int i = 0; i < n; i++) {
+        double x_val = data_array[2 * i];       /* Парний індекс: аргумент x */
+        double fx_val = data_array[2 * i + 1];  /* Непарний індекс: значення f(x) */
+        printf("| %13d | %12.4lf | %16.4lf |\n", i + 1, x_val, fx_val);
+    }
+    printf("+---------------+--------------+------------------+\n");
+
+    /* Звільнення виділеної динамічної пам'яті */
+    free(data_array);
 }
 
 int main(void) {
@@ -161,5 +217,9 @@ int main(void) {
     fclose(out_bin);
 
     printf("Дані успішно оброблено та збережено у output.txt і data.bin.\n");
+
+    /* 4. Читання бінарного файлу в динамічний масив та вивід на екран */
+    read_and_display_binary("data.bin");
+
     return EXIT_SUCCESS;
 }
